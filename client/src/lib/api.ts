@@ -30,3 +30,23 @@ export const create_todo = async (title: string, content:string) => {
     console.log(response.data);
     return response.data;
 }
+
+export const delete_todo = async (id: string) => {
+    const response = await axios.delete(`${API_URL}/todos/delete/${id}`);
+    console.log(response.data);
+    return response.data;
+}
+
+export const update_status = async (id: string) => {
+    const response = await axios.put(`${API_URL}/todos/update/status/${id}`);
+    console.log(response.data);
+    return response.data;
+}
+
+export const update_title = async (id: string, title: string) => {
+    const response = await axios.put(`${API_URL}/todos/update/title/${id}`, {
+        title
+    });
+    console.log(response.data);
+    return response.data;
+}
