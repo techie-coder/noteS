@@ -38,6 +38,7 @@ export const delete_todo = async (id: string) => {
 }
 
 export const update_status = async (id: string) => {
+    console.log(id);
     const response = await axios.put(`${API_URL}/todos/update/status/${id}`);
     console.log(response.data);
     return response.data;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { get_todos, create_todo, delete_todo } from "../lib/api";
+import { get_todos, create_todo, delete_todo, update_status } from "../lib/api";
 import { DropIndicator } from "./DropIndicator";
 import fireIcon from "../assets/fire2.png";
 import deleteIcon from "../assets/trash.png";
@@ -40,11 +40,52 @@ const Board = () => {
     const handleDragLeave = (e) => {
         e.preventDefault();
         clearHighlights();
+
     }
 
-    const handleDragEnd = (e) => {
+    const handleDragEnd = async (e, column) => {
         e.preventDefault();
         clearHighlights();
+        const cardId = e.dataTransfer.getData("cardId");
+        const status = e.dataTransfer.getData("cardCol");
+        if (status !== column) {
+            const response = await update_status(cardId);
+            console.log(response);
+            setTodos(await get_todos());
+        } else {
+            const indicators = getIndicators();
+            const { element } = getNearesIndicator(e, indicators);
+            const before = element.dataset.before || "-1";
+            const cardIndex = e.dataTransfer.getData("cardIndex");
+            console.log(before);
+            console.log(cardIndex);
+            if (before !== cardIndex) {
+                let copy = [...todos]
+                console.log(copy);
+                console.log(cardId);
+                let todoToTransfer = copy.find((todo) => String(todo.id) === cardId);
+                console.log("checking todo to transfer")
+                if (!todoToTransfer) return;
+                console.log("todo to transfer got")
+                todoToTransfer = { ...todoToTransfer };
+
+                copy = copy.filter((todo) => String(todo.id) !== cardId);
+
+                const moveToBack = before === "-1";
+
+                if (moveToBack) {
+                    console.log("move to back is true");
+                    copy.push(todoToTransfer);
+                } else {
+                    const insertAtIndex = copy.findIndex((el) => String(el.id) === cardId);
+                    console.log(insertAtIndex);
+                    if (insertAtIndex === undefined) return;
+
+                    copy.splice(insertAtIndex, 0, todoToTransfer);
+                }
+                setTodos(copy);
+            }
+        }
     }
 
     const highlightIndicator = (e) => {
@@ -67,7 +108,7 @@ const Board = () => {
     }
 
     const getNearesIndicator = (e, indicators) => {
-        const DISTANCE_OFFSET = 5;
+        const DISTANCE_OFFSET = 50;
         const el = indicators.reduce(
             (closest, child) => {
                 const box = child.getBoundingClientRect();
@@ -124,19 +165,19 @@ const Board = () => {
                 <div className="h-full">
                     <div className="w-full mt-5 ml-5"><h1 className="text-3xl text-white">Your Todos</h1></div>
                     {todos.length >= 0 ? <>
-                        <div className="flex flex-col space-y-15" onDragLeave={handleDragLeave} onDragEnd={handleDragEnd} onDragOver={handleDragOver}>
+                        <div className="flex flex-col space-y-15">
                             <div className="flex flex-col mt-5 ml-5 gap-5">
                                 <p className="text-md text-red-400">Pending</p>
-                                <div className="space-y-2 w-full">
+                                <div className="space-y-2 w-full" onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={(e) => handleDragEnd(e, "incomplete")}>
                                     {todos?.filter((item) => item.status === "incomplete").map((item, index) => (<Card key={index} item={item} index={index} column={"Pending"} />))}
-                                    <DropIndicator before-id={"-1"} column={"Pending"} />
+                                    <DropIndicator beforeId={"-1"} column={"Pending"} />
                                 </div>
                             </div>
                             <div className="flex flex-col mt-5 ml-5">
                                 <p className="text-md text-green-400">Complete</p>
-                                <div className="space-y-2 w-full">
+                                <div className="space-y-2 w-full" onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={(e) => handleDragEnd(e, "complete")}>
                                     {todos?.filter((item) => item.status === "complete").map((item, index) => (<Card key={index} item={item} index={index} column={"Complete"} />))}
-                                    <DropIndicator before-id={"-1"} column={"Complete"} />
+                                    <DropIndicator beforeId={"-1"} column={"Complete"} />
                                 </div>
                             </div></div>
                     </> : <><p className="ml-5 mt-5 text-xl text-white">You have not created any todos yet!</p></>}
@@ -159,13 +200,15 @@ export default Board;
 
 const handleDragStart = (e, card) => {
     e.dataTransfer.setData("cardId", card.item.id);
+    e.dataTransfer.setData("cardCol", card.item.status)
+    e.dataTransfer.setData("cardIndex", card.index)
 }
 
 const Card = ({ item, index, column }) => {
     return (
         <>
-            <DropIndicator before-id={index + 1} data-column={column} />
-            <div draggable="true" onDragStart={(e) => handleDragStart(e, { item })} className="bg-notesbody border border-neutral-700 px-3 py-2 rounded-sm text-md text-white break-words active:cursor-grabbing">{index + 1}{". "}{item.title}</div>
+            <DropIndicator beforeId={String(index)} column={column} />
+            <div draggable="true" onDragStart={(e) => handleDragStart(e, { item, index })} className="bg-notesbody border border-neutral-700 px-3 py-2 rounded-sm text-md text-white break-words active:cursor-grabbing">{index + 1}{". "}{item.title}</div>
         </>
 
     )
