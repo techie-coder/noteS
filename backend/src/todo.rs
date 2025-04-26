@@ -13,12 +13,14 @@ pub struct Todo {
     title: String,
     content: Option<String>,
     status: String,
+    username: String,
 }
 
 #[derive(Serialize, Deserialize, FromRow)]
 pub struct CreateTodo {
     title: String,
     content: String,
+    username: String,
 }
 
 #[derive(Serialize, Deserialize, FromRow)]
@@ -29,6 +31,11 @@ pub struct Title {
 #[derive(Serialize, Deserialize, FromRow)]
 pub struct Content {
     content: String,
+}
+
+#[derive(Serialize, Deserialize, FromRow)]
+pub struct Username {
+    username: String,
 }
 
 async fn get_status(db: &SqlitePool, id: i32) -> Result<String, sqlx::Error> {
@@ -44,9 +51,17 @@ async fn get_status(db: &SqlitePool, id: i32) -> Result<String, sqlx::Error> {
 }
 
 impl Todo {
-    pub async fn get_all_todos(State(db): State<SqlitePool>) -> impl IntoResponse {
-        let res: Result<Vec<Self>, Error> =
-            sqlx::query_as("SELECT * FROM todos").fetch_all(&db).await;
+    pub async fn get_all_todos(
+        State(db): State<SqlitePool>,
+        Json(body): Json<Username>,
+    ) -> impl IntoResponse {
+        let res: Result<Vec<Self>, Error> = sqlx::query_as(
+            "SELECT * FROM todos
+            WHERE username = ?",
+        )
+        .bind(&body.username)
+        .fetch_all(&db)
+        .await;
 
         match res {
             Ok(todos) => (StatusCode::OK, Json(todos)).into_response(),
@@ -57,12 +72,14 @@ impl Todo {
         State(db): State<SqlitePool>,
         Json(body): Json<CreateTodo>,
     ) -> impl IntoResponse {
-        let res = sqlx::query("INSERT INTO todos (title, content, status) VALUES (?, ?, ?)")
-            .bind(&body.title)
-            .bind(&body.content)
-            .bind("incomplete")
-            .execute(&db)
-            .await;
+        let res =
+            sqlx::query("INSERT INTO todos (title, content, status, username) VALUES (?, ?, ?, ?)")
+                .bind(&body.title)
+                .bind(&body.content)
+                .bind("incomplete")
+                .bind(&body.username)
+                .execute(&db)
+                .await;
 
         match res {
             Ok(todo) => (
@@ -72,6 +89,7 @@ impl Todo {
                     title: body.title.clone(),
                     content: Some(body.content.clone()),
                     status: "incomplete".to_string(),
+                    username: body.username.clone(),
                 }),
             )
                 .into_response(),
